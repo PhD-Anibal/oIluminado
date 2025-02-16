@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'build/oIluminado.uf2'
+elf = 'build/oIluminado.elf'
