@@ -30,6 +30,38 @@
 #define LED_G_PIN 11  
 #define LED_R_PIN 13  
 #define LED_B_PIN 12  
+bool bloqueia_led_RGB = false;  // Estado do LED (inicialmente permite)
+
+#define DEBOUNCE_DELAY 100  // Tempo de debounce para evitar múltiplas detecções de um único toque
+volatile uint32_t last_interrupt_time=0; // Armazena o tempo da última interrupção
+
+// Função de interrupção para tratar eventos nos botões
+void gpio_irq_handler(uint gpio,uint32_t events)
+{
+    uint16_t i;
+    uint32_t valor_led;
+        
+    uint32_t current_time=to_ms_since_boot(get_absolute_time()); // Obtém o tempo atual em milissegundos
+    if(current_time-last_interrupt_time>DEBOUNCE_DELAY){
+      if(gpio==JOYSTICK_PB){
+
+        last_interrupt_time=current_time; // Atualiza o tempo da última interrupção
+        if(!bloqueia_led_RGB){
+          gpio_put(LED_G_PIN, !gpio_get(LED_G_PIN));
+        }else{
+          gpio_put(LED_G_PIN, 0);
+        }
+      }else{
+        bloqueia_led_RGB=!bloqueia_led_RGB;
+        //gpio_put(LED_R_PIN, 0);
+        //gpio_put(LED_G_PIN, 0);
+        //gpio_put(LED_B_PIN, 0);
+      }
+
+
+        
+    }
+}
 
 uint pwm_init_gpio(uint gpio, uint wrap) {
     gpio_set_function(gpio, GPIO_FUNC_PWM);
@@ -41,31 +73,22 @@ uint pwm_init_gpio(uint gpio, uint wrap) {
     return slice_num;  
 }
 
-
-//Trecho para modo BOOTSEL com botão B
-#include "pico/bootrom.h"
-#define botaoB 6
-void gpio_irq_handler(uint gpio, uint32_t events)
-{
-  reset_usb_boot(0, 0);
-}
-
 int main()
 {
   stdio_init_all();
-  // Para ser utilizado o modo BOOTSEL com botão B
-  gpio_init(botaoB);
-  gpio_set_dir(botaoB, GPIO_IN);
-  gpio_pull_up(botaoB);
-  gpio_set_irq_enabled_with_callback(botaoB, GPIO_IRQ_EDGE_FALL, true, &gpio_irq_handler);
 
   gpio_init(JOYSTICK_PB);
   gpio_set_dir(JOYSTICK_PB, GPIO_IN);
   gpio_pull_up(JOYSTICK_PB); 
 
+
   gpio_init(Botao_A);
   gpio_set_dir(Botao_A, GPIO_IN);
   gpio_pull_up(Botao_A);
+
+  // Configuração das interrupções nos botões
+  gpio_set_irq_enabled_with_callback(JOYSTICK_PB,GPIO_IRQ_EDGE_FALL, true,&gpio_irq_handler);
+  gpio_set_irq_enabled_with_callback(Botao_A,GPIO_IRQ_EDGE_FALL, true,&gpio_irq_handler);
 
     gpio_init(LED_B_PIN);
     gpio_set_dir(LED_B_PIN, GPIO_OUT);
@@ -76,7 +99,6 @@ int main()
     gpio_init(LED_G_PIN);
     gpio_set_dir(LED_G_PIN, GPIO_OUT);
     gpio_put(LED_G_PIN, false);
-
 
   // I2C Initialisation. Using it at 400Khz.
   i2c_init(I2C_PORT, 400 * 1000);
@@ -116,54 +138,51 @@ uint pwm_slice_r = pwm_init_gpio(LED_R_PIN, pwm_wrap);
     adc_select_input(0); // Seleciona o ADC para eixo Y. O pino 26 como entrada analógica
     adc_value_y = adc_read();
     distancia_centro_y=abs(4096/2-adc_value_y);
-    if(distancia_centro_y>50){
+    if(!bloqueia_led_RGB){
+      if(distancia_centro_y>50){
         pwm_set_gpio_level(LED_B_PIN, distancia_centro_y);
-    }
-      else{
+      }else{
         pwm_set_gpio_level(LED_B_PIN, 0);
-    }
+      }
+    }else{
+      pwm_set_gpio_level(LED_B_PIN, 0);
+      }
+    
     adc_value_y=(64-8)-(adc_value_y*(64-8)/4096); //resolução do display 128x64 -8 de cada lado
     
     adc_select_input(1); // Seleciona o ADC para eixo X. O pino 27 como entrada analógica
     adc_value_x = adc_read();
     distancia_centro_x=abs(4096/2-adc_value_x);
-    if(distancia_centro_x>50){
-      pwm_set_gpio_level(LED_R_PIN, distancia_centro_x);
-      } else{
-        pwm_set_gpio_level(LED_R_PIN, 0);
-      }
+    if(!bloqueia_led_RGB){
+      if(distancia_centro_x>50){
+        pwm_set_gpio_level(LED_R_PIN, distancia_centro_x);
+        }else{
+         pwm_set_gpio_level(LED_R_PIN, 0);
+        }
+    }else{
+      pwm_set_gpio_level(LED_R_PIN, 0);
+    }
     adc_value_x = (adc_value_x) * (128 - 8) / 4096;
-    
-
-    //adc_value_y=adc_value_y*(128-8)/4096;
-    //adc_value_y = 
-    //adc_value_y = (adc_read() * (128 - 8) / 4096);
-//adc_value_y = (128 - 8) - adc_value_y;
-    //sprintf(str_x, "%d", adc_value_x);  // Converte o inteiro em string
-    //sprintf(str_y, "%d", adc_value_y);  // Converte o inteiro em string
     
     //cor = !cor;
     // Atualiza o conteúdo do display com animações
     ssd1306_fill(&ssd, !cor); // Limpa o display
-  // ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor); // Desenha um retângulo
-   // ssd1306_line(&ssd, 3, 25, 123, 25, cor); // Desenha uma linha
-  //  ssd1306_line(&ssd, 3, 37, 123, 37, cor); // Desenha uma linha   
-  //  ssd1306_draw_string(&ssd, "CEPEDI   TIC37", 8, 6); // Desenha uma string
-  //  ssd1306_draw_string(&ssd, "EMBARCATECH", 20, 16); // Desenha uma string
-  //  ssd1306_draw_string(&ssd, "ADC   JOYSTICK", 10, 28); // Desenha uma string 
-  //  ssd1306_draw_string(&ssd, "X    Y    PB", 20, 41); // Desenha uma string    
-  //  ssd1306_line(&ssd, 44, 37, 44, 60, cor); // Desenha uma linha vertical         
-  //  ssd1306_draw_string(&ssd, str_x, 8, 52); // Desenha uma string     
-  //  ssd1306_line(&ssd, 84, 37, 84, 60, cor); // Desenha uma linha vertical      
-  //  ssd1306_draw_string(&ssd, str_y, 49, 52); // Desenha uma string   
-   // ssd1306_rect(&ssd, 52, 90, 8, 8, cor, !gpio_get(JOYSTICK_PB)); // Desenha um retângulo  
-   // ssd1306_rect(&ssd, 52, 102, 8, 8, cor, !gpio_get(Botao_A)); // Desenha um retângulo    
-   // ssd1306_rect(&ssd, 52, 114, 8, 8, cor, !cor); // Desenha um retângulo
-   //ssd1306_rect(&ssd, 120, 114, 8, 8, cor, !cor); // Desenha um retângulo
+    
+    if(gpio_get(LED_G_PIN)){
+      ssd1306_rect(&ssd, 3, 3, 122, 60, cor, !cor); // Desenha um retângulo
+    }else{
+      for (int x = 3; x < 125; x += 4) { 
+        ssd1306_pixel(&ssd, x, 3, cor);     // Linha superior
+        ssd1306_pixel(&ssd, x, 61, cor);    // Linha inferior
+     }
+      for (int y = 3; y < 61; y += 4) { 
+         ssd1306_pixel(&ssd, 3, y, cor);     // Linha esquerda
+        ssd1306_pixel(&ssd, 125, y, cor);   // Linha direita
+      } 
+    }
+    
     ssd1306_rect(&ssd, adc_value_y,adc_value_x, 8, 8, cor, !cor); // Desenha um retângul       
     ssd1306_send_data(&ssd); // Atualiza o display
-
-
     sleep_ms(500);
   }
 }
