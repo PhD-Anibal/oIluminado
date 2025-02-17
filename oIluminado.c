@@ -53,9 +53,6 @@ void gpio_irq_handler(uint gpio,uint32_t events)
         }
       }else{
         bloqueia_led_RGB=!bloqueia_led_RGB;
-        //gpio_put(LED_R_PIN, 0);
-        //gpio_put(LED_G_PIN, 0);
-        //gpio_put(LED_B_PIN, 0);
       }
 
 
