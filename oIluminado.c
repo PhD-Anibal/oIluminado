@@ -173,6 +173,6 @@ int main()
     
     ssd1306_rect(&ssd, adc_value_y,adc_value_x, 8, 8, true, false); // Desenha um retângulo de 8x8 que mexe com o Joystick
     ssd1306_send_data(&ssd); // Atualiza o display
-    sleep_ms(500);
+    sleep_ms(50);
   }
 }
