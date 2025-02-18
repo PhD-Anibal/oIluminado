@@ -18,7 +18,7 @@ Ativar ou desativar os LEDs PWM pelo botão A
 
 Confira a execução do código no vídeo abaixo:
 
-🔗 Link de Youtube: [https://youtu.be/tSzL9VdP0N0](https://youtu.be/tSzL9VdP0N0)
+🔗 Link de Youtube: [https://youtu.be/709j54-fetk](https://youtu.be/709j54-fetk)
 
 
 ## 🛠️ Componentes Utilizados
